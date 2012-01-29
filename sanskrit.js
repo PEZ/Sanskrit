@@ -252,7 +252,32 @@ Sanskrit.prototype = {
     }, 250);
   },
   
+  textilizeULLists: function(html, level) {
+    var div = document.createElement('div');
+    div.innerHTML = html.trim(/\s|\n/);
+    var elements = div.childNodes;
+    var result = '';
+    for (var i = 0; i < elements.length; i++) {
+      if (elements[i].nodeName == 'UL') {
+        result = result + this.textilizeULLists(elements[i].innerHTML, level + 1);
+      }
+      else if (elements[i].nodeName == 'LI') {
+        result = result + new Array(level + 1).join('*') + ' ' + elements[i].innerHTML + '\n';
+      }
+      else {
+        if (elements[i].nodeName == '#text') {
+          result = result + elements[i].nodeValue;
+        }
+        else {
+          result = result + elements[i].outerHTML;
+        }
+      }
+    }
+    return result;
+  },
+
   textilize: function(html, escape){
+    html = this.textilizeULLists(html, 0);
     html = html.replace(/\s*<p>((.|[\r\n])*?)<\/p>\s*/gi, "\n\n$1\n\n");
     html = html.replace(/<br ?\/?>/gi, "\n");
     html = html.replace(/<(?:b|strong)>((.|[\r\n])*?)<\/(?:b|strong)>/gi, '*$1*');
@@ -297,7 +322,6 @@ Sanskrit.prototype = {
   htmlize: function(textile, escape){
     var paragraphs = textile.split("\n\n");
     for (var i=0; i<paragraphs.length; i++) {
-      //paragraphs[i] = paragraphs[i].replace(/(^|\r\n|\n|\r)\* (.*)/g, '$1###LI### $2');
       paragraphs[i] = this.htmlizeBulletedLists(paragraphs[i]);
       paragraphs[i] = paragraphs[i].replace(/\n/gi, '<br/>');
       paragraphs[i] = paragraphs[i].replace(/@((.|[\r\n])*?)@/gi, '<code>$1</code>');
@@ -306,7 +330,6 @@ Sanskrit.prototype = {
       paragraphs[i] = paragraphs[i].replace(/\+(.+?)\+/gi, '<u>$1</u>');
       paragraphs[i] = paragraphs[i].replace(/-(.+?)-/gi, '<strike>$1</strike>');
       paragraphs[i] = paragraphs[i].replace(/"(.+?)":([^\s\n<]+)/gi, '<a href="$2">$1</a>');
-      paragraphs[i] = paragraphs[i].replace(/###LI###/gi, '*');
       paragraphs[i] = '<p>'+paragraphs[i]+'</p>';
     }
     textile = paragraphs.join("\n");

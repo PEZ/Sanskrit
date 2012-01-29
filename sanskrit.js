@@ -254,7 +254,7 @@ Sanskrit.prototype = {
   
   textilizeULLists: function(html, level) {
     var div = document.createElement('div');
-    div.innerHTML = html.trim(/\s|\n/);
+    div.innerHTML = html.trim();
     var elements = div.childNodes;
     var result = '';
     for (var i = 0; i < elements.length; i++) {
@@ -315,6 +315,7 @@ Sanskrit.prototype = {
     paragraph = lines.join("");
     while (level > 0) {
       paragraph += "</ul>";
+      level--;
     }
     return paragraph;
   },

@@ -252,20 +252,22 @@ Sanskrit.prototype = {
     }, 250);
   },
   
-  textilizeULLists: function(html, level) {
+  textilizeLists: function(html, level, listChar) {
     var div = document.createElement('div');
     div.innerHTML = html.trim();
     var elements = div.childNodes;
     var result = '';
     for (var i = 0; i < elements.length; i++) {
-      if (elements[i].nodeName == 'UL') {
-        result = result + this.textilizeULLists(elements[i].innerHTML, level + 1);
+      var nodeName = elements[i].nodeName;
+      if (nodeName == 'UL' || nodeName == 'OL') {
+        var lc = nodeName == 'UL' ? '*' : '#';
+        result = result + this.textilizeLists(elements[i].innerHTML, level + 1, lc);
       }
-      else if (elements[i].nodeName == 'LI') {
-        result = result + new Array(level + 1).join('*') + ' ' + elements[i].innerHTML + '\n';
+      else if (nodeName == 'LI') {
+        result = result + new Array(level + 1).join(listChar) + ' ' + elements[i].innerHTML + '\n';
       }
       else {
-        if (elements[i].nodeName == '#text') {
+        if (nodeName == '#text') {
           result = result + elements[i].nodeValue;
         }
         else {
@@ -277,7 +279,7 @@ Sanskrit.prototype = {
   },
 
   textilize: function(html, escape){
-    html = this.textilizeULLists(html, 0);
+    html = this.textilizeLists(html, 0, '');
     html = html.replace(/\s*<p>((.|[\r\n])*?)<\/p>\s*/gi, "\n\n$1\n\n");
     html = html.replace(/<br ?\/?>/gi, "\n");
     html = html.replace(/<(?:b|strong)>((.|[\r\n])*?)<\/(?:b|strong)>/gi, '*$1*');
@@ -294,27 +296,38 @@ Sanskrit.prototype = {
     return html;
   },
   
-  htmlizeBulletedLists: function(paragraph){
-    var lines = paragraph.split(/\r|\n|\n|\r/);
-    var bulletsRE = /(?:^|\r\n|\n|\r)(\*+) (.*)/;
+  htmlizeLists: function(paragraph){
+    var lines = paragraph.split(/\n/);
+    var bulletsRE = /(?:^|\n)([*#]+) (.*)/;
     var lastLevel = 0;
+    var closeLevel = 0;
+    var closeTags = "";
+    var lastBulletType = "";
+    var listTypes = new Array();
     for (var i = 0; i < lines.length; i++) {
       var level = 0;
       if (lines[i].match(bulletsRE)) {
+        lastBulletType = lines[i].match(bulletsRE)[1][0];
         level = lines[i].match(bulletsRE)[1].length;
         lines[i] = lines[i].replace(bulletsRE, "<li>$2</li>");
       }
       if (level > lastLevel) {
-        lines[i] = "<ul>" + lines[i];
+        listTypes[level] = lastBulletType == "*" ? "ul" : "ol";
+        lines[i] = "<" + listTypes[level] + ">" + lines[i];
       }
-      else if (level < lastLevel) {
-        lines[i] = "</ul>" + lines[i];
+      else {
+        closeLevel = lastLevel;
+        closeTags = "";
+        while (closeLevel > level) {
+          closeTags += "</" + listTypes[closeLevel--] + ">";
+        }
+        lines[i] = closeTags + lines[i];
       }
       lastLevel = level;
     }
     paragraph = lines.join("");
     while (level > 0) {
-      paragraph += "</ul>";
+      paragraph += "</" + listTypes[level] + ">";
       level--;
     }
     return paragraph;
@@ -323,7 +336,7 @@ Sanskrit.prototype = {
   htmlize: function(textile, escape){
     var paragraphs = textile.split("\n\n");
     for (var i=0; i<paragraphs.length; i++) {
-      paragraphs[i] = this.htmlizeBulletedLists(paragraphs[i]);
+      paragraphs[i] = this.htmlizeLists(paragraphs[i]);
       paragraphs[i] = paragraphs[i].replace(/\n/gi, '<br/>');
       paragraphs[i] = paragraphs[i].replace(/@((.|[\r\n])*?)@/gi, '<code>$1</code>');
       paragraphs[i] = paragraphs[i].replace(/\*(.+?)\*/gi, (this.internetExplorer ? '<strong>$1</strong>' : '<b>$1</b>'));

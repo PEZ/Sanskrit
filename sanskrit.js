@@ -1,3 +1,18 @@
+
+function htmlizeText(text, isList) {
+      text = text.replace(/\n/gi, '<br/>');
+      text = text.replace(/@((.|[\r\n])*?)@/gi, '<code>$1</code>');
+      text = text.replace(/\*(.+?)\*/gi, (this.internetExplorer ? '<strong>$1</strong>' : '<b>$1</b>'));
+      text = text.replace(/_(.+?)_/gi, (this.internetExplorer ? '<em>$1</em>' : '<i>$1</i>'));
+      text = text.replace(/\+(.+?)\+/gi, '<u>$1</u>');
+      text = text.replace(/(?!\w)-(.+?)-(?!\w)/gi, '<strike>$1</strike>');
+      text = text.replace(/"(.+?)":([^\s\n<]+)/gi, '<a href="$2">$1</a>');
+      if (!isList) {
+        text = '<p>'+text+'</p>';
+      }
+      return text;
+  }
+
 function Sanskrit (textarea, options) {
 
   this.options = options || {};
@@ -296,7 +311,12 @@ Sanskrit.prototype = {
     return html;
   },
   
-  htmlizeLists: function(paragraph){
+  listReplacer: function(match, p1, p2, offset, string) {
+    return "<li>" + htmlizeText(p2, true) + "</li>";
+  },
+
+  htmlizeList: function(paragraph){
+    var isList = false;
     var lines = paragraph.split(/\n/);
     var bulletsRE = /(?:^|\n)([*#]+) (.*)/;
     var lastLevel = 0;
@@ -307,9 +327,10 @@ Sanskrit.prototype = {
     for (var i = 0; i < lines.length; i++) {
       var level = 0;
       if (lines[i].match(bulletsRE)) {
+        isList = true;
         lastBulletType = lines[i].match(bulletsRE)[1][0];
         level = lines[i].match(bulletsRE)[1].length;
-        lines[i] = lines[i].replace(bulletsRE, "<li>$2</li>");
+        lines[i] = lines[i].replace(bulletsRE, this.listReplacer);
       }
       if (level > lastLevel) {
         listTypes[level] = lastBulletType == "*" ? "ul" : "ol";
@@ -330,21 +351,20 @@ Sanskrit.prototype = {
       paragraph += "</" + listTypes[level] + ">";
       level--;
     }
-    return paragraph;
+    return {'text': paragraph, 'is_list': isList};
   },
 
   htmlize: function(textile, escape){
     var paragraphs = textile.split("\n\n");
+    var paragraphInfos = new Array();
     for (var i=0; i<paragraphs.length; i++) {
-      paragraphs[i] = this.htmlizeLists(paragraphs[i]);
-      paragraphs[i] = paragraphs[i].replace(/\n/gi, '<br/>');
-      paragraphs[i] = paragraphs[i].replace(/@((.|[\r\n])*?)@/gi, '<code>$1</code>');
-      paragraphs[i] = paragraphs[i].replace(/\*(.+?)\*/gi, (this.internetExplorer ? '<strong>$1</strong>' : '<b>$1</b>'));
-      paragraphs[i] = paragraphs[i].replace(/_(.+?)_/gi, (this.internetExplorer ? '<em>$1</em>' : '<i>$1</i>'));
-      paragraphs[i] = paragraphs[i].replace(/\+(.+?)\+/gi, '<u>$1</u>');
-      paragraphs[i] = paragraphs[i].replace(/-(.+?)-/gi, '<strike>$1</strike>');
-      paragraphs[i] = paragraphs[i].replace(/"(.+?)":([^\s\n<]+)/gi, '<a href="$2">$1</a>');
-      paragraphs[i] = '<p>'+paragraphs[i]+'</p>';
+      var paragraphInfo = this.htmlizeList(paragraphs[i]);
+      if (paragraphInfo['is_list']) {
+          paragraphs[i]= paragraphInfo['text'];
+      }
+      else {
+          paragraphs[i] = htmlizeText(paragraphInfo['text'], false);
+      }
     }
     textile = paragraphs.join("\n");
     textile = textile.replace(/<p>[\s\n]*<\/p>/g, '');
